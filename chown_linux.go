@@ -1,4 +1,4 @@
-package lumberjack
+package rollingFiles
 
 import (
 	"os"

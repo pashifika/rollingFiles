@@ -1,44 +1,96 @@
-# lumberjack  [![GoDoc](https://godoc.org/gopkg.in/natefinch/lumberjack.v2?status.png)](https://godoc.org/gopkg.in/natefinch/lumberjack.v2) [![Build Status](https://travis-ci.org/natefinch/lumberjack.svg?branch=v2.0)](https://travis-ci.org/natefinch/lumberjack) [![Build status](https://ci.appveyor.com/api/projects/status/00gchpxtg4gkrt5d)](https://ci.appveyor.com/project/natefinch/lumberjack) [![Coverage Status](https://coveralls.io/repos/natefinch/lumberjack/badge.svg?branch=v2.0)](https://coveralls.io/r/natefinch/lumberjack?branch=v2.0)
+# rollingFiles  [![GoDoc](https://godoc.org/gopkg.in/natefinch/rollingFiles.v2?status.png)](https://godoc.org/gopkg.in/natefinch/rollingFiles.v2) [![Build Status](https://travis-ci.org/natefinch/rollingFiles.svg?branch=v2.0)](https://travis-ci.org/natefinch/rollingFiles) [![Build status](https://ci.appveyor.com/api/projects/status/00gchpxtg4gkrt5d)](https://ci.appveyor.com/project/natefinch/rollingFiles) [![Coverage Status](https://coveralls.io/repos/natefinch/rollingFiles/badge.svg?branch=v2.0)](https://coveralls.io/r/natefinch/rollingFiles?branch=v2.0)
 
-### Lumberjack is a Go package for writing logs to rolling files.
+### rollingFiles is a Go package for writing logs to rolling files.
 
-Package lumberjack provides a rolling logger.
+Original package url is:
 
-Note that this is v2.0 of lumberjack, and should be imported using gopkg.in
+    https://github.com/natefinch/lumberjack
+
+
+-----------------------------------------------------------
+Package rollingFiles provides a rolling logger.
+
+Note that this is v2.2 of rollingFiles, and should be imported using gopkg.in
 thusly:
 
-    import "gopkg.in/natefinch/lumberjack.v2"
+    import "github.com/pashifika/rollingFiles"
 
-The package name remains simply lumberjack, and the code resides at
-https://github.com/natefinch/lumberjack under the v2.0 branch.
 
-Lumberjack is intended to be one part of a logging infrastructure.
+rollingFiles is intended to be one part of a logging infrastructure.
 It is not an all-in-one solution, but instead is a pluggable
 component at the bottom of the logging stack that simply controls the files
 to which logs are written.
 
-Lumberjack plays well with any logging package that can write to an
+rollingFiles plays well with any logging package that can write to an
 io.Writer, including the standard library's log package.
 
-Lumberjack assumes that only one process is writing to the output files.
-Using the same lumberjack configuration from multiple processes on the same
+rollingFiles assumes that only one process is writing to the output files.
+Using the same rollingFiles configuration from multiple processes on the same
 machine will result in improper behavior.
 
 
 **Example**
 
-To use lumberjack with the standard library's log package, just pass it into the SetOutput function when your application starts.
+To use rollingFiles with the standard library's log package, just pass it into the SetOutput function when your application starts.
 
-Code:
+For std log code:
 
 ```go
-log.SetOutput(&lumberjack.Logger{
+log.SetOutput(&rollingFiles.Logger{
     Filename:   "/var/log/myapp/foo.log",
-    MaxSize:    500, // megabytes
+    MaxSize:    500,   // megabytes
     MaxBackups: 3,
-    MaxAge:     28, //days
+    MaxAge:     28,   //days
+    TimeLayout: "20060102",
     Compress:   true, // disabled by default
 })
+```
+
+For zap logger code:
+```go
+level := zap.NewAtomicLevel()
+level.SetLevel(zapcore.DebugLevel)
+logger := zap.New(
+    zapcore.NewCore(
+        zapcore.NewJSONEncoder(zapcore.EncoderConfig{
+            TimeKey:        "Time",
+            LevelKey:       "Level",
+            NameKey:        "Name",
+            CallerKey:      "Caller",
+            MessageKey:     "Msg",
+            StacktraceKey:  "St",
+            EncodeLevel:    zapcore.CapitalLevelEncoder,
+            EncodeTime:     zapcore.ISO8601TimeEncoder,
+            EncodeDuration: zapcore.StringDurationEncoder,
+            EncodeCaller:   zapcore.ShortCallerEncoder,
+        }),
+        zapcore.AddSync(&rollingFiles.Logger{
+            Filename:   "/var/log/myapp/foo.log",
+            MaxSize:    10,
+            MaxAge:     5,
+            MaxBackups: 5,
+            TimeLayout: "20060102",
+            LocalTime:  true,
+            Compress:   false,
+        }),
+        level,
+    ),
+    []zap.Option{
+        zap.AddStacktrace(zapcore.DebugLevel),
+        zap.ErrorOutput(zapcore.AddSync(&rollingFiles.Logger{
+            Filename:   "/var/log/myapp/zap_foo.log",
+            MaxSize:    10,
+            MaxAge:     5,
+            MaxBackups: 5,
+            TimeLayout: "20060102",
+            LocalTime:  true,
+            Compress:   false,
+        })),
+        zap.WrapCore(func(core zapcore.Core) zapcore.Core {
+            return zapcore.NewSampler(core, time.Second, 3, 50)
+        }),
+    }...
+)
 ```
 
 
@@ -47,7 +99,7 @@ log.SetOutput(&lumberjack.Logger{
 ``` go
 type Logger struct {
     // Filename is the file to write logs to.  Backup log files will be retained
-    // in the same directory.  It uses <processname>-lumberjack.log in
+    // in the same directory.  It uses <processname>-rollingFiles.log in
     // os.TempDir() if empty.
     Filename string `json:"filename" yaml:"filename"`
 
@@ -67,6 +119,11 @@ type Logger struct {
     // deleted.)
     MaxBackups int `json:"maxbackups" yaml:"maxbackups"`
 
+	// LocalTime determines if the time used for formatting the timestamps in
+	// backup files is the computer's local time.  The default is to use UTC
+	// time.
+	LocalTime bool `json:"localtime" yaml:"localtime"`
+
     // LocalTime determines if the time used for formatting the timestamps in
     // backup files is the computer's local time.  The default is to use UTC
     // time.
@@ -81,7 +138,7 @@ type Logger struct {
 Logger is an io.WriteCloser that writes to the specified filename.
 
 Logger opens or creates the logfile on first Write.  If the file exists and
-is less than MaxSize megabytes, lumberjack will open and append to that file.
+is less than MaxSize megabytes, rollingFiles will open and append to that file.
 If the file exists and its size is >= MaxSize megabytes, the file is renamed
 by putting the current time in a timestamp in the name immediately before the
 file's extension (or the end of the filename if there's no extension). A new
@@ -145,7 +202,7 @@ Example of how to rotate in response to SIGHUP.
 Code:
 
 ```go
-l := &lumberjack.Logger{}
+l := &rollingFiles.Logger{}
 log.SetOutput(l)
 c := make(chan os.Signal, 1)
 signal.Notify(c, syscall.SIGHUP)

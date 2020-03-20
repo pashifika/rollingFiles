@@ -1,25 +1,25 @@
-// Package lumberjack provides a rolling logger.
+// Package rollingFiles provides a rolling logger.
 //
-// Note that this is v2.0 of lumberjack, and should be imported using gopkg.in
+// Note that this is v2.0 of rollingFiles, and should be imported using gopkg.in
 // thusly:
 //
 //   import "gopkg.in/natefinch/lumberjack.v2"
 //
-// The package name remains simply lumberjack, and the code resides at
+// The package name remains simply rollingFiles, and the code resides at
 // https://github.com/natefinch/lumberjack under the v2.0 branch.
 //
-// Lumberjack is intended to be one part of a logging infrastructure.
+// rollingFiles is intended to be one part of a logging infrastructure.
 // It is not an all-in-one solution, but instead is a pluggable
 // component at the bottom of the logging stack that simply controls the files
 // to which logs are written.
 //
-// Lumberjack plays well with any logging package that can write to an
+// rollingFiles plays well with any logging package that can write to an
 // io.Writer, including the standard library's log package.
 //
-// Lumberjack assumes that only one process is writing to the output files.
-// Using the same lumberjack configuration from multiple processes on the same
+// rollingFiles assumes that only one process is writing to the output files.
+// Using the same rollingFiles configuration from multiple processes on the same
 // machine will result in improper behavior.
-package lumberjack
+package rollingFiles
 
 import (
 	"compress/gzip"
@@ -36,9 +36,9 @@ import (
 )
 
 const (
-	backupTimeFormat = "2006-01-02T15-04-05.000"
-	compressSuffix   = ".gz"
-	defaultMaxSize   = 100
+	defaultTimeFormat = "2006-01-02T15-04-05.000"
+	compressSuffix    = ".gz"
+	defaultMaxSize    = 100
 )
 
 // ensure we always implement io.WriteCloser
@@ -47,7 +47,7 @@ var _ io.WriteCloser = (*Logger)(nil)
 // Logger is an io.WriteCloser that writes to the specified filename.
 //
 // Logger opens or creates the logfile on first Write.  If the file exists and
-// is less than MaxSize megabytes, lumberjack will open and append to that file.
+// is less than MaxSize megabytes, rollingFiles will open and append to that file.
 // If the file exists and its size is >= MaxSize megabytes, the file is renamed
 // by putting the current time in a timestamp in the name immediately before the
 // file's extension (or the end of the filename if there's no extension). A new
@@ -78,7 +78,7 @@ var _ io.WriteCloser = (*Logger)(nil)
 // If MaxBackups and MaxAge are both 0, no old log files will be deleted.
 type Logger struct {
 	// Filename is the file to write logs to.  Backup log files will be retained
-	// in the same directory.  It uses <processname>-lumberjack.log in
+	// in the same directory.  It uses <processname>-rollingFiles.log in
 	// os.TempDir() if empty.
 	Filename string `json:"filename" yaml:"filename"`
 
@@ -102,6 +102,9 @@ type Logger struct {
 	// backup files is the computer's local time.  The default is to use UTC
 	// time.
 	LocalTime bool `json:"localtime" yaml:"localtime"`
+
+	// Custom the time formatting. The default is "2006-01-02T15-04-05.000".
+	TimeLayout string `json:"timelayout" yaml:"timelayout"`
 
 	// Compress determines if the rotated log files should be compressed
 	// using gzip. The default is not to perform compression.
@@ -218,7 +221,7 @@ func (l *Logger) openNew() error {
 		// Copy the mode off the old logfile.
 		mode = info.Mode()
 		// move the existing file
-		newname := backupName(name, l.LocalTime)
+		newname := backupName(name, l.TimeLayout, l.LocalTime)
 		if err := os.Rename(name, newname); err != nil {
 			return fmt.Errorf("can't rename log file: %s", err)
 		}
@@ -244,7 +247,7 @@ func (l *Logger) openNew() error {
 // backupName creates a new filename from the given name, inserting a timestamp
 // between the filename and the extension, using the local time if requested
 // (otherwise UTC).
-func backupName(name string, local bool) string {
+func backupName(name, layout string, local bool) string {
 	dir := filepath.Dir(name)
 	filename := filepath.Base(name)
 	ext := filepath.Ext(filename)
@@ -253,8 +256,13 @@ func backupName(name string, local bool) string {
 	if !local {
 		t = t.UTC()
 	}
+	var timestamp string
+	if layout != "" {
+		timestamp = t.Format(layout)
+	} else {
+		timestamp = t.Format(defaultTimeFormat)
+	}
 
-	timestamp := t.Format(backupTimeFormat)
 	return filepath.Join(dir, fmt.Sprintf("%s-%s%s", prefix, timestamp, ext))
 }
 
@@ -293,7 +301,7 @@ func (l *Logger) filename() string {
 	if l.Filename != "" {
 		return l.Filename
 	}
-	name := filepath.Base(os.Args[0]) + "-lumberjack.log"
+	name := filepath.Base(os.Args[0]) + "-rollingFiles.log"
 	return filepath.Join(os.TempDir(), name)
 }
 
@@ -376,7 +384,7 @@ func (l *Logger) millRunOnce() error {
 // millRun runs in a goroutine to manage post-rotation compression and removal
 // of old log files.
 func (l *Logger) millRun() {
-	for _ = range l.millCh {
+	for range l.millCh {
 		// what am I going to do, log this?
 		_ = l.millRunOnce()
 	}
@@ -402,7 +410,7 @@ func (l *Logger) oldLogFiles() ([]logInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("can't read log file directory: %s", err)
 	}
-	logFiles := []logInfo{}
+	var logFiles []logInfo
 
 	prefix, ext := l.prefixAndExt()
 
@@ -419,7 +427,7 @@ func (l *Logger) oldLogFiles() ([]logInfo, error) {
 			continue
 		}
 		// error parsing means that the suffix at the end was not generated
-		// by lumberjack, and therefore it's not a backup file.
+		// by rollingFiles, and therefore it's not a backup file.
 	}
 
 	sort.Sort(byFormatTime(logFiles))
@@ -438,7 +446,13 @@ func (l *Logger) timeFromName(filename, prefix, ext string) (time.Time, error) {
 		return time.Time{}, errors.New("mismatched extension")
 	}
 	ts := filename[len(prefix) : len(filename)-len(ext)]
-	return time.Parse(backupTimeFormat, ts)
+	var layout string
+	if l.TimeLayout != "" {
+		layout = l.TimeLayout
+	} else {
+		layout = defaultTimeFormat
+	}
+	return time.Parse(layout, ts)
 }
 
 // max returns the maximum size in bytes of log files before rolling.

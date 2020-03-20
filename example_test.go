@@ -1,15 +1,15 @@
-package lumberjack_test
+package rollingFiles_test
 
 import (
 	"log"
 
-	"gopkg.in/natefinch/lumberjack.v2"
+	"github.com/pashifika/rollingFiles"
 )
 
 // To use lumberjack with the standard library's log package, just pass it into
 // the SetOutput function when your application starts.
 func Example() {
-	log.SetOutput(&lumberjack.Logger{
+	log.SetOutput(&rollingFiles.Logger{
 		Filename:   "/var/log/myapp/foo.log",
 		MaxSize:    500, // megabytes
 		MaxBackups: 3,
