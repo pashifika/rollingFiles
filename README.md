@@ -1,4 +1,4 @@
-# rollingFiles  [![GoDoc](https://godoc.org/gopkg.in/natefinch/rollingFiles.v2?status.png)](https://godoc.org/gopkg.in/natefinch/rollingFiles.v2) [![Build Status](https://travis-ci.org/natefinch/rollingFiles.svg?branch=v2.0)](https://travis-ci.org/natefinch/rollingFiles) [![Build status](https://ci.appveyor.com/api/projects/status/00gchpxtg4gkrt5d)](https://ci.appveyor.com/project/natefinch/rollingFiles) [![Coverage Status](https://coveralls.io/repos/natefinch/rollingFiles/badge.svg?branch=v2.0)](https://coveralls.io/r/natefinch/rollingFiles?branch=v2.0)
+# rollingFiles  [![GoDoc](https://godoc.org/github.com/pashifika/rollingFiles?status.png)](https://godoc.org/github.com/pashifika/rollingFiles) 
 
 ### rollingFiles is a Go package for writing logs to rolling files.
 
@@ -10,7 +10,11 @@ Original package url is:
 -----------------------------------------------------------
 Package rollingFiles provides a rolling logger.
 
-Note that this is v2.2 of rollingFiles, and should be imported using gopkg.in
+Download and Install
+
+    go get github.com/pashifika/rollingFiles@v2.2.0
+
+Note that this is v2.2 of rollingFiles, and should be imported using github.com
 thusly:
 
     import "github.com/pashifika/rollingFiles"
@@ -41,7 +45,7 @@ log.SetOutput(&rollingFiles.Logger{
     MaxSize:    500,   // megabytes
     MaxBackups: 3,
     MaxAge:     28,   //days
-    TimeLayout: "20060102",
+    TimeLayout: "20060102T150405",
     Compress:   true, // disabled by default
 })
 ```
@@ -69,7 +73,7 @@ logger := zap.New(
             MaxSize:    10,
             MaxAge:     5,
             MaxBackups: 5,
-            TimeLayout: "20060102",
+            TimeLayout: "20060102T150405",
             LocalTime:  true,
             Compress:   false,
         }),
@@ -82,7 +86,7 @@ logger := zap.New(
             MaxSize:    10,
             MaxAge:     5,
             MaxBackups: 5,
-            TimeLayout: "20060102",
+            TimeLayout: "20060102T150405",
             LocalTime:  true,
             Compress:   false,
         })),
