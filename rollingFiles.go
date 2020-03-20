@@ -1,12 +1,12 @@
 // Package rollingFiles provides a rolling logger.
 //
-// Note that this is v2.0 of rollingFiles, and should be imported using gopkg.in
+// Note that this is v2.2.1 of rollingFiles, and should be imported using github.com
 // thusly:
 //
-//   import "gopkg.in/natefinch/lumberjack.v2"
+//   import "github.com/pashifika/rollingFiles"
 //
 // The package name remains simply rollingFiles, and the code resides at
-// https://github.com/natefinch/lumberjack under the v2.0 branch.
+// https://github.com/pashifika/rollingFiles under the v2.2 branch.
 //
 // rollingFiles is intended to be one part of a logging infrastructure.
 // It is not an all-in-one solution, but instead is a pluggable

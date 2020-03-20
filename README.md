@@ -12,7 +12,7 @@ Package rollingFiles provides a rolling logger.
 
 Download and Install
 
-    go get github.com/pashifika/rollingFiles@v2.2.0
+    go get github.com/pashifika/rollingFiles@v2.2.1
 
 Note that this is v2.2 of rollingFiles, and should be imported using github.com
 thusly:
